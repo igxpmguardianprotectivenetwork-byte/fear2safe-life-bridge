@@ -10,25 +10,22 @@ type StatusCardProps = {
 
 const tones = {
   mint: {
-    wrap: "from-[#f0fdf6] via-white to-white border-[#c6ebd5]",
-    value: "text-[#047857]",
-    iconBg: "bg-[#d1fae5] text-[#047857]",
-    bar: "bg-gradient-to-b from-[#34d399] to-[#059669]",
-    ring: "ring-[#a7f3d0]/60",
+    wrap: "from-[#ecfdf5] to-white border-[#bbf7d0]",
+    value: "text-[#059669]",
+    iconBg: "bg-[#d1fae5] text-[#059669]",
+    bar: "bg-[#34d399]",
   },
   pink: {
-    wrap: "from-[#fff5f8] via-white to-white border-[#e5a0b4]",
+    wrap: "from-[#fff0f5] to-white border-[#f0a8c0]",
     value: "text-pink",
     iconBg: "bg-[#fce7f3] text-pink",
-    bar: "bg-gradient-to-b from-pink to-pink-deep",
-    ring: "ring-pink/15",
+    bar: "bg-pink",
   },
   sky: {
-    wrap: "from-[#f0f9ff] via-white to-white border-[#b6dff7]",
-    value: "text-[#0369a1]",
-    iconBg: "bg-[#e0f2fe] text-[#0369a1]",
-    bar: "bg-gradient-to-b from-[#38bdf8] to-[#0284c7]",
-    ring: "ring-sky/20",
+    wrap: "from-[#eff8ff] to-white border-[#bae6fd]",
+    value: "text-[#0284c7]",
+    iconBg: "bg-[#e0f2fe] text-[#0284c7]",
+    bar: "bg-[#38bdf8]",
   },
 }
 
@@ -36,21 +33,16 @@ export function StatusCard({ value, label, tone, icon, hint }: StatusCardProps) 
   const t = tones[tone]
   return (
     <div
-      className={`group relative overflow-hidden rounded-2xl border bg-gradient-to-br p-5 shadow-[0_2px_8px_rgba(61,31,44,0.03),0_12px_28px_rgba(233,30,99,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(233,30,99,0.1)] ${t.wrap}`}
+      className={`relative overflow-hidden rounded-2xl border-2 bg-gradient-to-br p-5 shadow-[0_1px_2px_rgba(61,31,44,0.04),0_8px_24px_rgba(233,30,99,0.05)] ${t.wrap}`}
     >
-      <span className={`absolute top-0 left-0 h-full w-[3px] ${t.bar}`} />
-      <div className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-white/50 blur-2xl" />
-      <div className="relative flex items-start justify-between gap-3 pl-1.5">
+      <span className={`absolute top-0 left-0 h-full w-1 ${t.bar}`} />
+      <div className="flex items-start justify-between gap-3 pl-1">
         <div>
-          <p className="text-[11px] font-bold tracking-[0.14em] text-[#9a7382] uppercase">{label}</p>
-          <p className={`mt-2 text-[2rem] leading-none font-extrabold tracking-tight tabular-nums ${t.value}`}>
-            {value}
-          </p>
-          {hint ? <p className="mt-2 text-xs font-medium text-[#8a6b78]">{hint}</p> : null}
+          <p className="text-[11px] font-bold tracking-[0.12em] text-[#8a6b78] uppercase">{label}</p>
+          <p className={`mt-1.5 text-3xl font-extrabold tracking-tight tabular-nums ${t.value}`}>{value}</p>
+          {hint ? <p className="mt-1 text-xs font-medium text-[#8a6b78]">{hint}</p> : null}
         </div>
-        {icon ? (
-          <div className={`rounded-2xl p-3 shadow-sm ring-4 ring-white/80 ${t.iconBg} ${t.ring}`}>{icon}</div>
-        ) : null}
+        {icon ? <div className={`rounded-xl p-2.5 ${t.iconBg}`}>{icon}</div> : null}
       </div>
     </div>
   )
@@ -60,13 +52,13 @@ type Severity = "high" | "medium" | "low"
 
 export function SeverityBadge({ severity }: { severity: Severity }) {
   const map = {
-    high: "bg-[#fff0f5] text-pink ring-1 ring-[#e5a0b4]",
-    medium: "bg-[#fffbeb] text-[#d97706] ring-1 ring-[#fcd34d]",
-    low: "bg-[#ecfdf5] text-[#059669] ring-1 ring-[#6ee7b7]",
+    high: "bg-[#fff0f5] text-pink ring-1 ring-[#f0a8c0]",
+    medium: "bg-[#fffbeb] text-[#d97706] ring-1 ring-[#fde68a]",
+    low: "bg-[#ecfdf5] text-[#059669] ring-1 ring-[#a7f3d0]",
   } as const
   const label = { high: "High", medium: "Medium", low: "Low" } as const
   return (
-    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide uppercase ${map[severity]}`}>
+    <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${map[severity]}`}>
       {label[severity]}
     </span>
   )
@@ -77,24 +69,22 @@ export function Panel({
   action,
   children,
   className = "",
-  flush = false,
 }: {
   title?: string
   action?: ReactNode
   children: ReactNode
   className?: string
-  flush?: boolean
 }) {
   return (
     <section
-      className={`overflow-hidden rounded-2xl border border-[#e5a0b4] bg-white shadow-[0_2px_8px_rgba(61,31,44,0.03),0_14px_36px_rgba(233,30,99,0.06)] ${className}`}
+      className={`overflow-hidden rounded-2xl border-2 border-[#e5a0b4] bg-white shadow-[0_1px_2px_rgba(61,31,44,0.04),0_10px_28px_rgba(233,30,99,0.05)] ${className}`}
     >
       {(title || action) && (
-        <div className="flex items-center justify-between gap-3 border-b border-[#e5a0b4]/70 bg-gradient-to-r from-[#fffafb] to-white px-5 py-3.5">
+        <div className="flex items-center justify-between gap-3 border-b-2 border-[#efc2d0] bg-[#fffafb] px-5 py-3.5">
           {title ? (
-            <div className="flex items-center gap-2.5">
-              <span className="h-5 w-1.5 rounded-full bg-gradient-to-b from-pink to-pink-deep" />
-              <h2 className="text-[14px] font-bold tracking-tight text-[#3d1f2c]">{title}</h2>
+            <div className="flex items-center gap-2">
+              <span className="h-4 w-1 rounded-full bg-pink" />
+              <h2 className="text-[14px] font-bold text-[#3d1f2c]">{title}</h2>
             </div>
           ) : (
             <span />
@@ -102,7 +92,7 @@ export function Panel({
           {action}
         </div>
       )}
-      <div className={flush ? "" : "p-5"}>{children}</div>
+      <div className="p-5">{children}</div>
     </section>
   )
 }
