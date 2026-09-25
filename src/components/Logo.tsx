@@ -1,0 +1,41 @@
+import { Link } from "react-router-dom"
+
+type LogoProps = {
+  className?: string
+  /** Smaller mark for tight sidebars */
+  compact?: boolean
+  /** Kept for callers; image logo works on light and dark */
+  light?: boolean
+  /** Link target when clickable (default /home) */
+  href?: string
+  /** Link to home (default true) */
+  toHome?: boolean
+  /** Pink glow ring — landing / login */
+  glow?: boolean
+}
+
+export function Logo({
+  className = "",
+  compact = false,
+  toHome = true,
+  glow = false,
+  href = "/home",
+}: LogoProps) {
+  const size = compact ? "h-12 w-12" : "h-[4.25rem] w-[4.25rem] sm:h-[4.75rem] sm:w-[4.75rem]"
+
+  const mark = (
+    <img
+      src="/brand/fear2safe-logo.jpg"
+      alt="Fear2Safe Life Bridge"
+      className={`${glow ? "logo-glow ring-2 ring-pink/50" : "shadow-sm ring-1 ring-black/5"} ${size} rounded-full object-cover ${className}`}
+    />
+  )
+
+  if (!toHome) return mark
+
+  return (
+    <Link to={href} className="inline-flex shrink-0 items-center" aria-label="Fear2Safe Life Bridge home">
+      {mark}
+    </Link>
+  )
+}
