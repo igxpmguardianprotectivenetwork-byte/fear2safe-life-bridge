@@ -1,117 +1,259 @@
-import { useState } from "react"
-import { Shield } from "lucide-react"
-import { Panel } from "../components/ui"
-
-const sections = ["Profile", "Security", "Notifications", "Guardian Settings", "Privacy", "Help"] as const
+import { useEffect, useMemo, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import {
+  Bell,
+  MapPin,
+  Phone,
+  ShieldAlert,
+  Siren,
+  TriangleAlert,
+  WifiOff,
+} from "lucide-react"
+import { useAuth } from "../auth"
+import { getSettingsAccountState, type SettingsNavId } from "../data/settingsProfile"
+import {
+  AccountSecurityCard,
+  ConnectedDevicesCard,
+  GuardianEmergencyCard,
+  HelpPanel,
+  NotificationPreferencesCard,
+  PersonalInformationCard,
+  PreferenceToggleRow,
+  PrivacyCard,
+  ProfileBanner,
+  SettingsPageHeader,
+  SettingsSidebar,
+  profileFieldIcons,
+} from "../components/settings/SettingsPageParts"
 
 const prefs = [
-  { id: "loc", label: "Location Sharing", desc: "Share live location with guardians", on: true },
-  { id: "alert", label: "Alert Notifications", desc: "Push and SMS for high-priority events", on: true },
-  { id: "sos", label: "SOS Confirmation", desc: "Ask before sending emergency SOS", on: false },
-  { id: "weekly", label: "Weekly Safety Report", desc: "Email a summary every Monday", on: true },
-]
+  {
+    id: "loc",
+    label: "Location Sharing",
+    desc: "Share live location with guardians",
+    on: true,
+    icon: <MapPin className="h-3.5 w-3.5" />,
+  },
+  {
+    id: "alert",
+    label: "Alert Notifications",
+    desc: "Push and in-app alerts for high-priority events",
+    on: true,
+    icon: <Bell className="h-3.5 w-3.5" />,
+  },
+  {
+    id: "sos",
+    label: "SOS Confirmation",
+    desc: "Ask before sending emergency SOS",
+    on: false,
+    icon: <Siren className="h-3.5 w-3.5" />,
+  },
+  {
+    id: "weekly",
+    label: "Weekly Safety Report",
+    desc: "Email a summary every Monday",
+    on: true,
+    icon: <Bell className="h-3.5 w-3.5" />,
+  },
+  {
+    id: "guardianCall",
+    label: "Guardian Call Alerts",
+    desc: "Receive calls during high-risk alerts",
+    on: true,
+    icon: <Phone className="h-3.5 w-3.5" />,
+  },
+  {
+    id: "offline",
+    label: "Device Offline Alerts",
+    desc: "Notify if your device goes offline",
+    on: true,
+    icon: <WifiOff className="h-3.5 w-3.5" />,
+  },
+  {
+    id: "zone",
+    label: "Safe Zone Alerts",
+    desc: "Notify on safe-zone exit or entry",
+    on: true,
+    icon: <ShieldAlert className="h-3.5 w-3.5" />,
+  },
+  {
+    id: "verify",
+    label: "Verification Requests",
+    desc: "Notify when a protection event needs verification",
+    on: true,
+    icon: <TriangleAlert className="h-3.5 w-3.5" />,
+  },
+] as const
 
-function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      onClick={onChange}
-      className={`relative h-7 w-12 rounded-full transition ${on ? "bg-sky-deep" : "bg-border"}`}
-    >
-      <span
-        className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition ${
-          on ? "translate-x-5" : ""
-        }`}
-      />
-    </button>
-  )
+const sectionIds: Record<SettingsNavId, string> = {
+  profile: "set-profile",
+  security: "set-security",
+  notifications: "set-notifications",
+  guardians: "set-guardians",
+  devices: "set-devices",
+  privacy: "set-privacy",
+  help: "set-help",
 }
 
 export function Settings() {
-  const [section, setSection] = useState<(typeof sections)[number]>("Profile")
-  const [toggles, setToggles] = useState(() => Object.fromEntries(prefs.map((p) => [p.id, p.on])))
+  const navigate = useNavigate()
+  const { logout } = useAuth()
+  const account = useMemo(() => getSettingsAccountState(), [])
+  const [section, setSection] = useState<SettingsNavId>("profile")
+  const [toggles, setToggles] = useState(() =>
+    Object.fromEntries(prefs.map((p) => [p.id, p.on])),
+  )
+
+  useEffect(() => {
+    const el = document.getElementById(sectionIds[section])
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [section])
+
+  const onLogout = () => {
+    if (!window.confirm("Log out of Fear2Safe?")) return
+    logout()
+    navigate("/", { replace: true })
+  }
+
+  const onEdit = () => {
+    window.alert("Profile editing connects to your account API when available. Current values are unchanged.")
+  }
+
+  const fields = [
+    {
+      label: "Full Name",
+      value: account.profile.fullName,
+      icon: profileFieldIcons.name,
+    },
+    {
+      label: "Date of Birth",
+      value: account.profile.dateOfBirth ?? "Not set",
+      icon: profileFieldIcons.dob,
+    },
+    {
+      label: "Organization",
+      value: account.profile.organization,
+      icon: profileFieldIcons.org,
+    },
+    {
+      label: "Primary Location",
+      value: account.profile.primaryLocation,
+      icon: profileFieldIcons.loc,
+    },
+    {
+      label: "Email Address",
+      value: account.profile.email ?? "Not set",
+      icon: profileFieldIcons.email,
+    },
+    {
+      label: "Emergency Contact",
+      value: account.profile.emergencyContactPhone
+        ? `${account.profile.emergencyContactName ?? "Guardian"} · ${account.profile.emergencyContactPhone}`
+        : "Not set",
+      icon: profileFieldIcons.phone,
+    },
+  ]
+
+  const securityRows = [
+    {
+      label: "Password Status",
+      hint: account.security.passwordHint,
+      status: account.security.passwordStatus,
+      tone: "blue" as const,
+    },
+    {
+      label: "Two-Factor Authentication",
+      hint: account.security.twoFactorHint,
+      status: account.security.twoFactor,
+      tone: "orange" as const,
+    },
+    {
+      label: "Login Alerts",
+      hint: account.security.loginAlertsHint,
+      status: account.security.loginAlerts,
+      tone: "green" as const,
+    },
+    {
+      label: "Trusted Devices",
+      hint: account.security.trustedDevicesHint,
+      status: `${account.security.trustedDevices} Device`,
+      tone: "blue" as const,
+    },
+    {
+      label: "Last Security Review",
+      hint: account.security.lastReviewHint,
+      status: account.security.lastReview,
+      tone: "muted" as const,
+    },
+  ]
+
+  const privacyRows = [
+    {
+      label: "Data Sharing",
+      hint: account.privacy.dataSharingHint,
+      status: account.privacy.dataSharing,
+    },
+    {
+      label: "Visibility to Guardians",
+      hint: account.privacy.visibilityHint,
+      status: account.privacy.visibility,
+    },
+    {
+      label: "Incident Report Access",
+      hint: account.privacy.incidentAccessHint,
+      status: account.privacy.incidentAccess,
+    },
+  ]
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold text-navy">Profile & Settings</h1>
-        <p className="mt-1 text-sm text-muted">Manage your identity, privacy, and safety preferences.</p>
-      </div>
+    <div className="f2s-settings-page">
+      <SettingsPageHeader />
 
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-border bg-gradient-to-r from-navy to-navy-2 p-5 text-white shadow-[var(--shadow-card)]">
-        <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-pink to-sky text-xl font-extrabold">
-            AH
-          </div>
-          <div>
-            <p className="text-xl font-extrabold">Ahamed Hassan</p>
-            <p className="text-sm text-white/70">Guardian Admin · Bengaluru</p>
-          </div>
-        </div>
-        <button className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-navy hover:bg-pink-soft">
-          Edit Profile
-        </button>
-      </div>
+      <div className="f2s-set-layout">
+        <SettingsSidebar active={section} onSelect={setSection} onLogout={onLogout} />
 
-      <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
-        <aside className="h-fit rounded-[16px] border border-border bg-white p-2 shadow-[var(--shadow-soft)]">
-          {sections.map((s) => (
-            <button
-              key={s}
-              onClick={() => setSection(s)}
-              className={`mb-1 w-full rounded-xl px-3.5 py-2.5 text-left text-sm font-semibold ${
-                section === s ? "bg-pink text-white" : "text-muted hover:bg-bg hover:text-navy"
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-          <button className="mt-2 w-full rounded-xl px-3.5 py-2.5 text-left text-sm font-semibold text-[#E53935] hover:bg-red-50">
-            Log Out
-          </button>
-        </aside>
+        <div className="f2s-set-main">
+          <ProfileBanner
+            name={account.profile.fullName}
+            role={account.profile.role}
+            location={account.profile.primaryLocation}
+            initials={account.profile.initials}
+            badges={account.bannerBadges}
+            onEdit={onEdit}
+          />
 
-        <div className="space-y-5">
-          <Panel title="Personal Information">
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[
-                ["Full Name", "Ahamed Hassan"],
-                ["Date of Birth", "14 Mar 1994"],
-                ["School / Org", "Life Bridge Guardian Centre"],
-                ["Emergency Contact", "+91 98765 43210"],
-              ].map(([k, v]) => (
-                <div key={k} className="rounded-xl border border-border bg-bg px-4 py-3">
-                  <p className="text-xs font-medium text-muted">{k}</p>
-                  <p className="mt-1 text-sm font-bold text-navy">{v}</p>
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel title="Preferences">
-            <ul className="divide-y divide-border">
+          <div className="f2s-set-grid">
+            <PersonalInformationCard fields={fields} onEdit={onEdit} />
+            <AccountSecurityCard rows={securityRows} />
+            <NotificationPreferencesCard>
               {prefs.map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
-                  <div>
-                    <p className="text-sm font-bold text-navy">{p.label}</p>
-                    <p className="text-xs text-muted">{p.desc}</p>
-                  </div>
-                  <Toggle
-                    on={toggles[p.id]}
-                    onChange={() => setToggles((t) => ({ ...t, [p.id]: !t[p.id] }))}
-                  />
-                </li>
+                <PreferenceToggleRow
+                  key={p.id}
+                  id={`pref-${p.id}`}
+                  label={p.label}
+                  desc={p.desc}
+                  icon={p.icon}
+                  on={toggles[p.id]}
+                  onChange={() => setToggles((t) => ({ ...t, [p.id]: !t[p.id] }))}
+                />
               ))}
-            </ul>
-          </Panel>
-        </div>
-      </div>
+            </NotificationPreferencesCard>
+            <GuardianEmergencyCard
+              primary={account.guardians.primary}
+              secondary={account.guardians.secondary}
+              escalationHint={account.guardians.escalationHint}
+              escalationLabel={account.guardians.escalationLabel}
+              safeCheckEnabled={account.guardians.safeCheckEnabled}
+            />
+            <ConnectedDevicesCard
+              wearable={account.devices.wearable}
+              consoleDevice={account.devices.console}
+            />
+            <PrivacyCard rows={privacyRows} />
+          </div>
 
-      <div className="flex items-center justify-center gap-3 rounded-[16px] border border-sky/30 bg-sky-soft px-5 py-4 text-sm font-medium text-navy">
-        <Shield className="h-5 w-5 text-sky-deep" />
-        Your safety matters. We are with you, always.
+          <HelpPanel />
+        </div>
       </div>
     </div>
   )

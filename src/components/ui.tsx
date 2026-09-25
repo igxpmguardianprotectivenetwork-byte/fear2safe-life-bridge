@@ -8,24 +8,28 @@ type StatusCardProps = {
   hint?: string
 }
 
+/** mint = healthy · pink = critical/attention · sky = warning/verify */
 const tones = {
   mint: {
-    wrap: "from-[#ecfdf5] to-white border-[#bbf7d0]",
-    value: "text-[#059669]",
-    iconBg: "bg-[#d1fae5] text-[#059669]",
-    bar: "bg-[#34d399]",
+    wrap: "from-[#ECFDF5] to-white border-[#BBF7D0]",
+    value: "text-[#16A34A]",
+    iconBg: "bg-[#ECFDF5] text-[#22C55E]",
+    bar: "bg-[#22C55E]",
+    glow: "shadow-[0_0_20px_rgba(34,197,94,0.18)]",
   },
   pink: {
-    wrap: "from-[#fff0f5] to-white border-[#f0a8c0]",
-    value: "text-pink",
-    iconBg: "bg-[#fce7f3] text-pink",
-    bar: "bg-pink",
+    wrap: "from-[#FFF1F2] to-white border-[#FECDD3]",
+    value: "text-[#E11D48]",
+    iconBg: "bg-[#FFF1F2] text-[#FF4D5A]",
+    bar: "bg-[#FF4D5A]",
+    glow: "shadow-[0_0_20px_rgba(255,77,90,0.2)]",
   },
   sky: {
-    wrap: "from-[#eff8ff] to-white border-[#bae6fd]",
-    value: "text-[#0284c7]",
-    iconBg: "bg-[#e0f2fe] text-[#0284c7]",
-    bar: "bg-[#38bdf8]",
+    wrap: "from-[#FFF8E8] to-white border-[#FDE68A]",
+    value: "text-[#D97706]",
+    iconBg: "bg-[#FFF8E8] text-[#F6B73C]",
+    bar: "bg-[#F6B73C]",
+    glow: "shadow-[0_0_20px_rgba(246,183,60,0.2)]",
   },
 }
 
@@ -33,14 +37,14 @@ export function StatusCard({ value, label, tone, icon, hint }: StatusCardProps) 
   const t = tones[tone]
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border-2 bg-gradient-to-br p-5 shadow-[0_1px_2px_rgba(61,31,44,0.04),0_8px_24px_rgba(233,30,99,0.05)] ${t.wrap}`}
+      className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br p-5 shadow-[0_1px_2px_rgba(16,42,67,0.04)] ${t.wrap} ${t.glow}`}
     >
       <span className={`absolute top-0 left-0 h-full w-1 ${t.bar}`} />
       <div className="flex items-start justify-between gap-3 pl-1">
         <div>
-          <p className="text-[11px] font-bold tracking-[0.12em] text-[#8a6b78] uppercase">{label}</p>
+          <p className="text-[11px] font-bold tracking-[0.12em] text-[#486174] uppercase">{label}</p>
           <p className={`mt-1.5 text-3xl font-extrabold tracking-tight tabular-nums ${t.value}`}>{value}</p>
-          {hint ? <p className="mt-1 text-xs font-medium text-[#8a6b78]">{hint}</p> : null}
+          {hint ? <p className="mt-1 text-xs font-medium text-[#486174]">{hint}</p> : null}
         </div>
         {icon ? <div className={`rounded-xl p-2.5 ${t.iconBg}`}>{icon}</div> : null}
       </div>
@@ -52,9 +56,9 @@ type Severity = "high" | "medium" | "low"
 
 export function SeverityBadge({ severity }: { severity: Severity }) {
   const map = {
-    high: "bg-[#fff0f5] text-pink ring-1 ring-[#f0a8c0]",
-    medium: "bg-[#fffbeb] text-[#d97706] ring-1 ring-[#fde68a]",
-    low: "bg-[#ecfdf5] text-[#059669] ring-1 ring-[#a7f3d0]",
+    high: "bg-[#FFF1F2] text-[#FF4D5A] ring-1 ring-[#FECDD3] shadow-[0_0_12px_rgba(255,77,90,0.25)]",
+    medium: "bg-[#FFF8E8] text-[#D97706] ring-1 ring-[#FDE68A] shadow-[0_0_12px_rgba(246,183,60,0.25)]",
+    low: "bg-[#ECFDF5] text-[#22C55E] ring-1 ring-[#BBF7D0] shadow-[0_0_12px_rgba(34,197,94,0.2)]",
   } as const
   const label = { high: "High", medium: "Medium", low: "Low" } as const
   return (
@@ -77,14 +81,14 @@ export function Panel({
 }) {
   return (
     <section
-      className={`overflow-hidden rounded-2xl border-2 border-[#e5a0b4] bg-white shadow-[0_1px_2px_rgba(61,31,44,0.04),0_10px_28px_rgba(233,30,99,0.05)] ${className}`}
+      className={`overflow-hidden rounded-2xl border border-[#DCE6EE] bg-white shadow-[0_1px_2px_rgba(16,42,67,0.04),0_10px_28px_rgba(16,42,67,0.05)] ${className}`}
     >
       {(title || action) && (
-        <div className="flex items-center justify-between gap-3 border-b-2 border-[#efc2d0] bg-[#fffafb] px-5 py-3.5">
+        <div className="flex items-center justify-between gap-3 border-b border-[#DCE6EE] bg-[#F5F9FC]/80 px-5 py-3.5">
           {title ? (
             <div className="flex items-center gap-2">
-              <span className="h-4 w-1 rounded-full bg-pink" />
-              <h2 className="text-[14px] font-bold text-[#3d1f2c]">{title}</h2>
+              <span className="h-4 w-1 rounded-full bg-[#007F86] shadow-[0_0_8px_rgba(0,127,134,0.55)]" />
+              <h2 className="text-[14px] font-bold text-[#102A43]">{title}</h2>
             </div>
           ) : (
             <span />

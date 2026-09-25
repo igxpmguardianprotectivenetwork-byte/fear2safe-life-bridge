@@ -1,98 +1,155 @@
-import { useMemo, useState } from "react"
-import { Search } from "lucide-react"
-import { mapPoints } from "../data/mock"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { GoogleLiveMap } from "../components/GoogleLiveMap"
+import {
+  LiveMapHeader,
+  MapFilterToolbar,
+  NetworkSummaryStrip,
+  SelectedUserPanel,
+} from "../components/liveMap/LiveMapPageParts"
+import {
+  conditionToMarkerDetail,
+  filterMapPoints,
+  getLiveMapNetworkStats,
+  haversineKm,
+  type MapFilter,
+} from "../components/liveMap/liveMapState"
+import { mapPoints } from "../data/mock"
 
-const filters = ["All", "Alerts", "Protected", "Guardians", "Safe Zones"] as const
-
-const colors = {
-  alert: "#E91E63",
-  protected: "#29B6F6",
-  guardian: "#0B1F33",
-  safe: "#22C55E",
-  verify: "#4FC3F7",
+const markerColors: Record<string, string> = {
+  alert: "#F2385A",
+  attention: "#F5A214",
+  protected: "#14B882",
+  guardian: "#009FA5",
+  safe: "#18C6EA",
+  verify: "#F5A214",
 }
 
-const legend = [
-  { label: "Risk / Alert", color: colors.alert },
-  { label: "Protected", color: colors.protected },
-  { label: "Guardian", color: colors.guardian },
-  { label: "Safe Zone", color: colors.safe },
-  { label: "Under Verification", color: colors.verify },
-  { label: "Your live GPS", color: "#E91E63" },
-]
-
 export function LiveMap() {
-  const [filter, setFilter] = useState<(typeof filters)[number]>("All")
+  const [filter, setFilter] = useState<MapFilter>("All")
   const [q, setQ] = useState("")
+  const [selectedId, setSelectedId] = useState<string | null>("self")
+  const [live, setLive] = useState<{ lat: number; lng: number; accuracy: number } | null>(null)
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const stats = useMemo(() => getLiveMapNetworkStats(), [])
 
   const markers = useMemo(() => {
-    return mapPoints
-      .filter((p) => {
-        if (filter === "All") return true
-        if (filter === "Alerts") return p.type === "alert"
-        if (filter === "Protected") return p.type === "protected" || p.type === "verify"
-        if (filter === "Guardians") return p.type === "guardian"
-        if (filter === "Safe Zones") return p.type === "safe"
-        return true
-      })
-      .filter((p) => p.label.toLowerCase().includes(q.toLowerCase()))
-      .map((p) => ({
+    return filterMapPoints(filter, q).map((p) => {
+      const detail = conditionToMarkerDetail(p.condition, p.type)
+      return {
         id: p.id,
         lat: p.lat,
         lng: p.lng,
         label: p.label,
-        color: colors[p.type],
-        detail: p.type,
-      }))
+        color: markerColors[detail] ?? markerColors.protected,
+        detail,
+      }
+    })
   }, [filter, q])
 
-  return (
-    <div className="-m-4 flex h-[calc(100vh-5.5rem)] flex-col sm:-m-6 lg:-m-8">
-      <div className="flex flex-wrap items-center gap-3 border-b border-[#e5a0b4] bg-white/90 px-4 py-3 sm:px-6">
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#8a6b78]" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search map…"
-            className="w-full rounded-full border border-[#e5a0b4] bg-[#fff8fb] py-2.5 pr-4 pl-10 text-sm outline-none focus:border-pink focus:ring-2 focus:ring-pink/20"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {filters.map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-bold ${
-                filter === f ? "bg-pink text-white" : "border border-border bg-white text-muted"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-      </div>
+  const origin = useMemo(() => {
+    if (selectedId && selectedId !== "self") {
+      const p = mapPoints.find((x) => x.id === selectedId)
+      if (p) return { lat: p.lat, lng: p.lng }
+    }
+    if (live) return { lat: live.lat, lng: live.lng }
+    return { lat: 6.8544, lng: 79.8635 }
+  }, [selectedId, live])
 
-      <div className="relative min-h-0 flex-1">
+  const nearby = useMemo(() => {
+    return mapPoints
+      .filter((p) => selectedId === "self" || p.id !== selectedId)
+      .map((p) => {
+        const detail = conditionToMarkerDetail(p.condition, p.type)
+        return {
+          id: p.id,
+          label: p.label,
+          detail,
+          distanceKm: haversineKm(origin, { lat: p.lat, lng: p.lng }),
+        }
+      })
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, 5)
+  }, [origin, selectedId])
+
+  const focusTarget = useMemo(() => {
+    if (!selectedId || selectedId === "self") return null
+    const p = mapPoints.find((x) => x.id === selectedId)
+    return p ? { lat: p.lat, lng: p.lng } : null
+  }, [selectedId])
+
+  const onLiveChange = useCallback(
+    (next: { lat: number; lng: number; accuracy: number } | null) => {
+      setLive(next)
+    },
+    [],
+  )
+
+  const dateLabel = now.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+  const timeLabel = now.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })
+
+  return (
+    <div className="f2s-live-map-page">
+      <LiveMapHeader dateLabel={dateLabel} timeLabel={timeLabel} />
+      <MapFilterToolbar query={q} onQuery={setQ} filter={filter} onFilter={setFilter} />
+
+      <div className="f2s-lm-main">
         <GoogleLiveMap
           markers={markers}
-          className="h-full rounded-none border-0"
-          fallbackCenter={{ lat: 6.9271, lng: 79.8612 }}
-          zoom={13}
+          className="f2s-lm-map-canvas"
+          fallbackCenter={{ lat: 6.8544, lng: 79.8635 }}
+          zoom={14}
           showLiveUser
+          consoleMode
+          consoleStats={{
+            connected: stats.connected,
+            total: stats.total,
+            attention: stats.attention,
+            verify: stats.verify,
+            safeZones: stats.safeZones,
+          }}
+          selectedId={selectedId}
+          followLive={selectedId === "self" || selectedId == null}
+          focusTarget={focusTarget}
+          showSafeZoneCircles={filter === "Safe Zones" || filter === "All"}
+          onLiveChange={onLiveChange}
+          onSelectSelf={() => setSelectedId("self")}
+          onMarkerClick={(m) => setSelectedId(m.id)}
+        />
+
+        <SelectedUserPanel
+          selectedId={selectedId}
+          liveCoords={live ? { lat: live.lat, lng: live.lng } : null}
+          liveAccuracy={live?.accuracy ?? null}
+          nearby={nearby}
+          onSelect={(id) => setSelectedId(id)}
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 border-t border-[#e5a0b4] bg-white/90 px-4 py-3 sm:px-6">
-        <p className="text-xs font-bold tracking-wide text-[#8a6b78] uppercase">Legend</p>
-        {legend.map((l) => (
-          <div key={l.label} className="flex items-center gap-2 text-xs font-medium text-[#3d1f2c]">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
-            {l.label}
-          </div>
-        ))}
-      </div>
+      <NetworkSummaryStrip />
+
+      {filter === "Devices" && markers.length === 0 ? (
+        <p className="f2s-lm-empty">No connected devices match this view.</p>
+      ) : null}
+      {(filter === "Guardians" || filter === "Heatmap" || filter === "Routes") && (
+        <p className="f2s-lm-empty">
+          {filter} view is unavailable until supporting location data is connected.
+        </p>
+      )}
     </div>
   )
 }

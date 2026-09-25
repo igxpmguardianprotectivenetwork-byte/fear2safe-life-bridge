@@ -43,7 +43,7 @@ export function ProtectionMap({
 }) {
   const mid = useMemo<LatLngExpression>(() => {
     if (center) return center
-    if (!markers.length) return [12.9716, 77.5946]
+    if (!markers.length) return [6.9271, 79.8612]
     const lat = markers.reduce((s, m) => s + m.lat, 0) / markers.length
     const lng = markers.reduce((s, m) => s + m.lng, 0) / markers.length
     return [lat, lng]

@@ -21,7 +21,7 @@ export function Logo({
   glow = false,
   href = "/home",
 }: LogoProps) {
-  const size = compact ? "h-12 w-12" : "h-[4.25rem] w-[4.25rem] sm:h-[4.75rem] sm:w-[4.75rem]"
+  const size = compact ? "h-14 w-14 sm:h-16 sm:w-16" : "h-[4.25rem] w-[4.25rem] sm:h-[4.75rem] sm:w-[4.75rem]"
 
   const mark = (
     <img
