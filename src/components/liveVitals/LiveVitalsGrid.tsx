@@ -14,10 +14,12 @@ import {
   Siren,
   TriangleAlert,
   UsersRound,
+  Watch,
   Wifi,
 } from "lucide-react"
 import { mapPoints, type UserCondition } from "../../data/mock"
-import { monitoredDevices, myDevice, protectionDevices } from "../../data/devices"
+import { MY_DEVICE_USER_ID, myDeviceCareUser } from "../../data/careUsers"
+import { monitoredDevices, myDevice, protectionDevices, type ProtectionDevice } from "../../data/devices"
 import { UserAvatar } from "../UserAvatar"
 
 export const liveStatusTheme: Record<
@@ -246,6 +248,8 @@ export function LiveSummaryStrip({
       const key = conditions[p.id] ?? p.condition
       c[key] += 1
     })
+    const ownKey = conditions[MY_DEVICE_USER_ID] ?? myDeviceCareUser.condition
+    c[ownKey] += 1
     return c
   }, [conditions])
 
@@ -265,7 +269,7 @@ export function LiveSummaryStrip({
     {
       key: "nodes",
       label: "Total Live Nodes",
-      value: String(mapPoints.length),
+      value: String(mapPoints.length + 1),
       icon: <UsersRound className="h-3.5 w-3.5" />,
       tone: "teal" as const,
       extra: <span className="f2s-lv-live-pill">LIVE</span>,
@@ -356,6 +360,9 @@ function LiveUserCard({
   condition,
   onOpen,
   onConditionChange,
+  deviceOverride,
+  badgeOverride,
+  subtitle,
 }: {
   userId: string
   label: string
@@ -363,9 +370,13 @@ function LiveUserCard({
   condition: UserCondition
   onOpen: () => void
   onConditionChange: (c: UserCondition) => void
+  deviceOverride?: ProtectionDevice
+  badgeOverride?: string
+  subtitle?: string
 }) {
   const theme = liveStatusTheme[condition]
-  const device = deviceForUser(userId)
+  const device = deviceOverride ?? deviceForUser(userId)
+  const isOwn = userId === MY_DEVICE_USER_ID
   const jagged = condition === "emergency" || condition === "attention"
   const activityLabel =
     device.activityLevel === "Low"
@@ -390,14 +401,29 @@ function LiveUserCard({
       <div className="f2s-lv-card-head">
         <div className="f2s-lv-card-who">
           <div className="f2s-lv-avatar-wrap">
-            <UserAvatar userId={userId} label={label} size="md" />
-            <span className="f2s-lv-online-dot" style={{ background: theme.color }} />
+            {isOwn ? (
+              <span className="f2s-lv-own-avatar" aria-hidden>
+                AH
+              </span>
+            ) : (
+              <UserAvatar userId={userId} label={label} size="md" />
+            )}
+            <span
+              className="f2s-lv-online-dot"
+              style={{ background: isOwn && device.connected ? "#007F86" : theme.color }}
+            />
           </div>
           <div className="min-w-0">
-            <p className="f2s-lv-node-id">{nodeId}</p>
+            <p className="f2s-lv-node-id">{subtitle ?? nodeId}</p>
             <h3 className="f2s-lv-name">{label}</h3>
-            <span className="f2s-lv-badge" style={{ color: theme.color, background: theme.soft }}>
-              {theme.label}
+            <span
+              className="f2s-lv-badge"
+              style={{
+                color: badgeOverride ? "#007F86" : theme.color,
+                background: badgeOverride ? "#EAF6FD" : theme.soft,
+              }}
+            >
+              {badgeOverride ?? theme.label}
             </span>
           </div>
         </div>
@@ -464,11 +490,16 @@ function LiveUserCard({
             <span className="dot" /> Bio Stream Active
           </span>
           <span>
-            <MapPin className="h-3 w-3" /> GPS On
+            <MapPin className="h-3 w-3" /> {device.gpsFix ? "GPS fix" : "No GPS"}
           </span>
           <span>
             <Wifi className="h-3 w-3" /> {device.connected ? "Device Online" : "Offline"}
           </span>
+          {device.onWrist != null ? (
+            <span className={device.onWrist ? "is-on-wrist" : "is-off-wrist"}>
+              <Watch className="h-3 w-3" /> {device.onWrist ? "On wrist" : "Off wrist"}
+            </span>
+          ) : null}
         </div>
         <button type="button" className="f2s-lv-open" onClick={onOpen}>
           Open Console →
@@ -482,11 +513,19 @@ export function ConnectedUsersPanel({
   conditions,
   onOpenUser,
   onConditionChange,
+  watchOnline = false,
+  watchDevice,
 }: {
   conditions: Record<string, UserCondition>
   onOpenUser: (id: string) => void
   onConditionChange: (id: string, c: UserCondition) => void
+  watchOnline?: boolean
+  watchDevice?: ProtectionDevice
 }) {
+  const total = mapPoints.length + 1
+  const mine = watchDevice ?? myDevice
+  const myCond = conditions[MY_DEVICE_USER_ID] ?? myDeviceCareUser.condition
+
   return (
     <section className="f2s-lv-panel">
       <div className="f2s-lv-panel-head">
@@ -495,7 +534,7 @@ export function ConnectedUsersPanel({
             <UsersRound className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <h2>Connected Users ({mapPoints.length})</h2>
+            <h2>Connected Users ({total})</h2>
             <p>
               Select a user to open live Care Console, watch vitals, graphs, and streaming metrics.
             </p>
@@ -518,11 +557,22 @@ export function ConnectedUsersPanel({
         </div>
         <span className="f2s-lv-nodes-badge">
           <span className="dot" />
-          {mapPoints.length} NODES · LIVE
+          {total} NODES · LIVE
         </span>
       </div>
 
       <div className="f2s-lv-grid">
+        <LiveUserCard
+          userId={MY_DEVICE_USER_ID}
+          label={myDeviceCareUser.label}
+          nodeId={myDeviceCareUser.nodeId}
+          condition={myCond}
+          deviceOverride={mine}
+          badgeOverride={watchOnline ? "MY WATCH · LIVE" : "MY WATCH"}
+          subtitle={mine.serial}
+          onOpen={() => onOpenUser(MY_DEVICE_USER_ID)}
+          onConditionChange={(c) => onConditionChange(MY_DEVICE_USER_ID, c)}
+        />
         {mapPoints.map((u) => (
           <LiveUserCard
             key={u.id}

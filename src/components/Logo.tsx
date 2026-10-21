@@ -25,16 +25,16 @@ export function Logo({
 
   const mark = (
     <img
-      src="/brand/fear2safe-logo.jpg"
-      alt="Fear2Safe Life Bridge"
-      className={`${glow ? "logo-glow ring-2 ring-pink/50" : "shadow-sm ring-1 ring-black/5"} ${size} rounded-full object-cover ${className}`}
+      src="/brand/igxpm-logo.png"
+      alt="IGXPM Guardian Protective Network"
+      className={`${glow ? "logo-glow ring-2 ring-pink/50" : "shadow-sm ring-1 ring-black/5"} ${size} rounded-full bg-white object-contain ${className}`}
     />
   )
 
   if (!toHome) return mark
 
   return (
-    <Link to={href} className="inline-flex shrink-0 items-center" aria-label="Fear2Safe Life Bridge home">
+    <Link to={href} className="inline-flex shrink-0 items-center" aria-label="IGXPM home">
       {mark}
     </Link>
   )

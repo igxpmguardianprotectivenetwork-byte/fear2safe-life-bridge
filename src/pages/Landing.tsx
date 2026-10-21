@@ -135,8 +135,8 @@ function HeroArt() {
         {/* Refined circular crop + pink glow frame */}
         <div className="hero-image-frame absolute inset-[6%] overflow-hidden rounded-full">
           <img
-            src="/brand/hero-mother-child.png"
-            alt="Mother and child — Fear2Safe Life Bridge"
+            src="/brand/igxpm-logo.png"
+            alt="IGXPM Guardian Protective Network"
             className="hero-image-refined h-full w-full select-none"
             draggable={false}
             decoding="sync"
@@ -384,8 +384,8 @@ export function Landing() {
             </button>
             <div className="mx-auto mb-4 h-44 w-44 overflow-hidden rounded-full shadow-[0_0_24px_rgba(233,30,99,0.35)]">
               <img
-                src="/brand/hero-mother-child.png"
-                alt=""
+                src="/brand/igxpm-logo.png"
+                alt="IGXPM"
                 className="hero-image-refined h-full w-full"
                 decoding="sync"
               />

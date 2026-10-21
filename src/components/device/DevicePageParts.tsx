@@ -25,7 +25,12 @@ import {
   Zap,
 } from "lucide-react"
 import type { ProtectionDevice } from "../../data/devices"
+import type { WatchLiveCoords } from "../../lib/useWatchLive"
+import { wristStatusLabel } from "../../lib/useWatchLive"
 import { HealthBand3D } from "../HealthBand3D"
+import { WatchScreenMirror } from "../WatchScreenMirror"
+import type { WatchLiveSnapshot } from "../../lib/supabase"
+import { GoogleLiveMap } from "../GoogleLiveMap"
 
 function SignalBars({ strong }: { strong: boolean }) {
   return (
@@ -48,6 +53,9 @@ export function DevicePageHeader({
   onSelect: (id: number) => void
   devices: ProtectionDevice[]
 }) {
+  const wristClass =
+    device.onWrist === true ? "is-on" : device.onWrist === false ? "is-off" : "is-unknown"
+  const wristText = wristStatusLabel(device.onWrist)
   return (
     <header className="f2s-device-header">
       <div className="f2s-device-title-block">
@@ -79,6 +87,12 @@ export function DevicePageHeader({
       </nav>
 
       <div className="f2s-device-connected">
+        {device.isOwnDevice || device.onWrist != null ? (
+          <span className={`f2s-wrist-pill ${wristClass}`}>
+            <Watch />
+            {wristText}
+          </span>
+        ) : null}
         <span className="f2s-connected-pill">
           <span className="f2s-dot-live" />
           Connected
@@ -92,14 +106,22 @@ export function DevicePageHeader({
   )
 }
 
-export function DeviceHero({ device }: { device: ProtectionDevice }) {
+export function DeviceHero({
+  device,
+  snapshot = null,
+  realtime = false,
+}: {
+  device: ProtectionDevice
+  snapshot?: WatchLiveSnapshot | null
+  realtime?: boolean
+}) {
   return (
     <section className="f2s-hero-card">
       <div className="f2s-hero-stage">
         <div className="f2s-hero-brand">
           <img
-            src={`${import.meta.env.BASE_URL}brand/fear2safe-logo.jpg`}
-            alt="Fear2Safe"
+            src={`${import.meta.env.BASE_URL}brand/igxpm-logo.png`}
+            alt="IGXPM"
             className="f2s-hero-logo"
           />
           <div>
@@ -143,7 +165,21 @@ export function DeviceHero({ device }: { device: ProtectionDevice }) {
         </svg>
 
         <div className="f2s-hero-band">
-          <HealthBand3D variant="pedestal" />
+          {device.isOwnDevice ? (
+            <WatchScreenMirror
+              device={device}
+              hr={snapshot?.health?.heart_rate}
+              spo2={snapshot?.health?.spo2}
+              temp={snapshot?.health?.temperature_c}
+              sbp={snapshot?.health?.bp_systolic}
+              dbp={snapshot?.health?.bp_diastolic}
+              realtime={realtime}
+              clock={snapshot?.clock}
+              size="md"
+            />
+          ) : (
+            <HealthBand3D variant="pedestal" />
+          )}
         </div>
 
         <div className="f2s-hero-caption">
@@ -199,6 +235,11 @@ export function ConnectionStatusCard({ device }: { device: ProtectionDevice }) {
           </span>
           <p>
             Last sync {device.lastSync} · {device.connectionType}
+            {device.onWrist === true
+              ? " · On wrist"
+              : device.onWrist === false
+                ? " · Off wrist"
+                : ""}
           </p>
         </div>
         <div className="f2s-conn-signal">
@@ -241,7 +282,14 @@ export function BatteryStatusCard({ device }: { device: ProtectionDevice }) {
   )
 }
 
-export function LocationCard({ device }: { device: ProtectionDevice }) {
+export function LocationCard({
+  device,
+  coords = null,
+}: {
+  device: ProtectionDevice
+  coords?: WatchLiveCoords
+}) {
+  const center = coords ?? { lat: 6.8544, lng: 79.8635 }
   return (
     <article className="f2s-status-card">
       <CardHead icon={MapPin} title="Location" action="View on Map" to="/map" />
@@ -249,18 +297,26 @@ export function LocationCard({ device }: { device: ProtectionDevice }) {
         <div>
           <p className="f2s-loc-name">{device.location}</p>
           <p className="f2s-loc-meta">
-            {device.isOwnDevice
-              ? "Uses browser Live GPS on Live Map · not a fixed pin"
-              : `Precision: street-level · Linked to ${device.wearer}`}
+            {coords
+              ? `Live GPS · ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`
+              : device.isOwnDevice
+                ? "Google Map · waiting for a GPS fix"
+                : `Precision: street-level · Linked to ${device.wearer}`}
           </p>
           <p className="f2s-loc-gps">
             GPS Accuracy <strong>{device.gpsAccuracy}</strong>
           </p>
         </div>
-        <div className="f2s-loc-map" aria-hidden>
-          <div className="f2s-loc-safe" />
-          <span className="f2s-loc-dot" />
-          {device.safeZone && <span className="f2s-loc-badge">Safe Zone</span>}
+        <div className="f2s-loc-map">
+          <GoogleLiveMap
+            className="f2s-loc-map-canvas"
+            fallbackCenter={center}
+            zoom={15}
+            showLiveUser={Boolean(coords)}
+            externalLive={coords}
+            hideFloatingStats
+            followLive={Boolean(coords)}
+          />
         </div>
       </div>
     </article>

@@ -30,14 +30,21 @@ import {
   Signal,
   Thermometer,
   TriangleAlert,
+  Watch,
   Waves,
   Wifi,
   Wind,
 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { mapPoints, type UserCondition } from "../../data/mock"
+import { myDeviceCareUser, isMyDeviceUserId } from "../../data/careUsers"
+import type { ProtectionDevice } from "../../data/devices"
 import { UserAvatar } from "../UserAvatar"
 import { deviceForUser, liveStatusTheme } from "./LiveVitalsGrid"
+import { WatchScreenMirror } from "../WatchScreenMirror"
+import type { WatchLiveSnapshot } from "../../lib/supabase"
+
+const careUsers = [myDeviceCareUser, ...mapPoints]
 
 export type CareSample = {
   t: string
@@ -202,6 +209,10 @@ export function CareConsole({
   onSelectUser,
   onBack,
   onConditionChange,
+  deviceOverride,
+  watchLive = false,
+  watchStatus,
+  watchClock = null,
 }: {
   userId: string
   conditions: Record<string, UserCondition>
@@ -212,14 +223,20 @@ export function CareConsole({
   onSelectUser: (id: string) => void
   onBack: () => void
   onConditionChange: (id: string, c: UserCondition) => void
+  deviceOverride?: ProtectionDevice
+  watchLive?: boolean
+  watchStatus?: string
+  watchClock?: WatchLiveSnapshot["clock"]
 }) {
   const [tab, setTab] = useState<ConsoleTab>("Live Graphs")
   const [range, setRange] = useState<"Live" | "1H" | "6H" | "24H">("Live")
-  const user = mapPoints.find((p) => p.id === userId)!
+  const user = careUsers.find((p) => p.id === userId) ?? myDeviceCareUser
   const cond = conditions[userId] ?? user.condition
   const theme = liveStatusTheme[cond]
-  const device = deviceForUser(userId)
+  const device = deviceOverride ?? deviceForUser(userId)
   const chartData = paused ? history : history
+  const onlineCount = careUsers.length
+  const isOwn = isMyDeviceUserId(userId)
 
   const hrSpark = useMemo(() => history.slice(-12).map((h) => h.hr), [history])
   const spo2Spark = useMemo(() => history.slice(-12).map((h) => h.spo2), [history])
@@ -322,7 +339,9 @@ export function CareConsole({
     "Context & Events",
   ]
 
-  const onlineCount = mapPoints.length
+  const ownStatusCopy = watchLive
+    ? "Live TCP watch telemetry — vitals update as packets arrive."
+    : watchStatus ?? "Waiting for watch packets from the TCP bridge."
 
   return (
     <div className="f2s-cc-page">
@@ -360,10 +379,11 @@ export function CareConsole({
             </p>
           </div>
           <ul>
-            {mapPoints.map((u) => {
+            {careUsers.map((u) => {
               const c = conditions[u.id] ?? u.condition
               const t = liveStatusTheme[c]
               const active = u.id === userId
+              const own = isMyDeviceUserId(u.id)
               return (
                 <li key={u.id}>
                   <button
@@ -372,10 +392,18 @@ export function CareConsole({
                     onClick={() => onSelectUser(u.id)}
                     style={{ "--cc-accent": t.color } as CSSProperties}
                   >
-                    <UserAvatar userId={u.id} label={u.label} size="sm" />
+                    {own ? (
+                      <span className="f2s-cc-own-avatar" aria-hidden>
+                        AH
+                      </span>
+                    ) : (
+                      <UserAvatar userId={u.id} label={u.label} size="sm" />
+                    )}
                     <span className="min-w-0 flex-1 text-left">
                       <strong>{u.label}</strong>
-                      <em style={{ color: t.color, background: t.soft }}>{t.label}</em>
+                      <em style={{ color: own ? "#007F86" : t.color, background: own ? "#EAF6FD" : t.soft }}>
+                        {own ? "MY WATCH" : t.label}
+                      </em>
                     </span>
                     <Signal className="h-3.5 w-3.5 text-[#14B882]" />
                   </button>
@@ -390,14 +418,23 @@ export function CareConsole({
 
         {/* CENTER */}
         <section className="f2s-cc-center">
-          <div className="f2s-cc-selected">
+          <div className={`f2s-cc-selected${isOwn ? " has-mirror" : ""}`}>
             <div className="f2s-cc-selected-who">
-              <UserAvatar userId={user.id} label={user.label} size="md" />
+              {isOwn ? (
+                <span className="f2s-cc-own-avatar is-lg" aria-hidden>
+                  AH
+                </span>
+              ) : (
+                <UserAvatar userId={user.id} label={user.label} size="md" />
+              )}
               <div className="min-w-0">
                 <h3>{user.label}</h3>
                 <p>
-                  {user.nodeId} · Wearable Device
+                  {isOwn
+                    ? `${device.serial} · TCP Watch`
+                    : `${user.nodeId} · Wearable Device`}
                 </p>
+                {watchStatus ? <p className="f2s-cc-watch-status">{watchStatus}</p> : null}
                 <button
                   type="button"
                   className="f2s-cc-badge"
@@ -409,16 +446,42 @@ export function CareConsole({
                   }}
                   title="Cycle status (demo)"
                 >
-                  {theme.label}
+                  {isOwn ? (watchLive ? "LIVE WATCH" : theme.label) : theme.label}
                 </button>
               </div>
             </div>
+            {isOwn ? (
+              <WatchScreenMirror
+                device={device}
+                hr={live.hr}
+                spo2={live.spo2}
+                temp={live.temp}
+                sbp={live.sbp}
+                dbp={live.dbp}
+                realtime={watchLive}
+                clock={watchClock}
+                size="sm"
+              />
+            ) : null}
             <div className="f2s-cc-tiles">
               <div>
                 <Wifi className="h-3.5 w-3.5" />
-                <p>Device Online</p>
+                <p>{device.connected ? "Device Online" : "Device Offline"}</p>
                 <strong>{device.lastSync}</strong>
               </div>
+              {isOwn ? (
+                <div className={device.onWrist === false ? "is-off-wrist" : ""}>
+                  <Watch className="h-3.5 w-3.5" />
+                  <p>Wrist</p>
+                  <strong>
+                    {device.onWrist === true
+                      ? "On wrist"
+                      : device.onWrist === false
+                        ? "Off wrist"
+                        : "Unknown"}
+                  </strong>
+                </div>
+              ) : null}
               <div>
                 <BatteryMedium className="h-3.5 w-3.5" />
                 <p>Battery</p>
@@ -433,7 +496,9 @@ export function CareConsole({
                 <MapPin className="h-3.5 w-3.5" />
                 <p>Location</p>
                 <strong>
-                  {user.lat.toFixed(5)}, {user.lng.toFixed(5)}
+                  {isOwn && device.location.startsWith("Live GPS")
+                    ? device.location.replace("Live GPS · ", "")
+                    : `${user.lat.toFixed(5)}, ${user.lng.toFixed(5)}`}
                 </strong>
               </div>
             </div>
@@ -479,7 +544,7 @@ export function CareConsole({
                 {paused ? "Resume" : "Pause"}
               </button>
               <span className="f2s-cc-rt">
-                <i /> Real-time · 1s
+                <i /> {watchLive ? "Watch · ~4s" : "Real-time · 1s"}
               </span>
             </div>
           </div>
@@ -575,28 +640,34 @@ export function CareConsole({
                   </div>
                 ))}
               </div>
-              <h4 className="mt">Optional / demo sensors</h4>
+              <h4 className="mt">{isOwn ? "Watch extras" : "Optional / demo sensors"}</h4>
               <p className="f2s-cc-note">
-                Not measured by the Fear2Safe Health Band. Shown only as demo / external placeholders.
+                {isOwn
+                  ? "Blood pressure comes from the TCP watch health packet when reported."
+                  : "Not measured by the Fear2Safe Health Band. Shown only as demo / external placeholders."}
               </p>
               <div className="f2s-cc-demo-row">
                 <div>
-                  <em>DEMO</em>
+                  <em>{isOwn ? "WATCH" : "DEMO"}</em>
                   <p>Blood Pressure</p>
                   <strong>
                     {live.sbp}/{live.dbp} mmHg
                   </strong>
                 </div>
-                <div>
-                  <em>DEMO</em>
-                  <p>Blood Glucose</p>
-                  <strong>{live.sugar} mg/dL</strong>
-                </div>
-                <div>
-                  <em>DEMO</em>
-                  <p>ECG (not available)</p>
-                  <strong>Use PPG above</strong>
-                </div>
+                {!isOwn ? (
+                  <>
+                    <div>
+                      <em>DEMO</em>
+                      <p>Blood Glucose</p>
+                      <strong>{live.sugar} mg/dL</strong>
+                    </div>
+                    <div>
+                      <em>DEMO</em>
+                      <p>ECG (not available)</p>
+                      <strong>Use PPG above</strong>
+                    </div>
+                  </>
+                ) : null}
               </div>
             </div>
           )}
@@ -693,12 +764,32 @@ export function CareConsole({
           <div className="f2s-cc-card">
             <h3>Current Status</h3>
             <p className="f2s-cc-right-name">{user.label}</p>
-            <span className="f2s-cc-badge" style={{ color: theme.color, background: theme.soft }}>
-              {theme.label}
+            <span
+              className="f2s-cc-badge"
+              style={{
+                color: isOwn && watchLive ? "#007F86" : theme.color,
+                background: isOwn && watchLive ? "#EAF6FD" : theme.soft,
+              }}
+            >
+              {isOwn ? (watchLive ? "LIVE WATCH" : theme.label) : theme.label}
             </span>
-            <div className="f2s-cc-status-box" style={{ borderColor: `${theme.color}44`, background: theme.soft }}>
-              <p>{cond === "verify" ? "Verification in progress" : theme.label}</p>
-              <span>{statusCopy}</span>
+            <div
+              className="f2s-cc-status-box"
+              style={{
+                borderColor: `${isOwn && watchLive ? "#007F86" : theme.color}44`,
+                background: isOwn && watchLive ? "#EAF6FD" : theme.soft,
+              }}
+            >
+              <p>
+                {isOwn
+                  ? watchLive
+                    ? "TCP watch connected"
+                    : "Watch bridge"
+                  : cond === "verify"
+                    ? "Verification in progress"
+                    : theme.label}
+              </p>
+              <span>{isOwn ? ownStatusCopy : statusCopy}</span>
             </div>
           </div>
 

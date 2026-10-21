@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { mapPoints, type UserCondition } from "../data/mock"
+import { isMyDeviceUserId, MY_DEVICE_USER_ID, myDeviceCareUser } from "../data/careUsers"
 import { ConnectedUsersPanel, LiveSummaryStrip } from "./liveVitals/LiveVitalsGrid"
 import { CareConsole, type CareSample } from "./liveVitals/CareConsole"
+import { useWatchLive } from "../lib/useWatchLive"
+import type { WatchLiveSnapshot } from "../lib/supabase"
+import type { ProtectionDevice } from "../data/devices"
 
 type Sample = CareSample
 
@@ -87,6 +91,49 @@ function nextSample(
   }
 }
 
+function sampleFromWatch(
+  prev: Sample | null,
+  device: ProtectionDevice,
+  snap: WatchLiveSnapshot | null,
+): Sample {
+  const now = new Date()
+  const t = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  const hr = device.heartRate
+  const spo2 = device.spo2
+  const temp = Number(device.skinTemperature.toFixed(1))
+  const sbp = snap?.health?.bp_systolic ?? prev?.sbp ?? 120
+  const dbp = snap?.health?.bp_diastolic ?? prev?.dbp ?? 80
+  const tick = Date.now() / 1000
+  const phase = (tick * (hr / 60) * Math.PI * 2) % (Math.PI * 2)
+  const ecg =
+    Math.sin(phase) * 18 +
+    Math.sin(phase * 3) * 6 +
+    (Math.sin(phase * 12) > 0.92 ? 55 : 0)
+  const activityLevel =
+    device.activityLevel === "High" ? 75 : device.activityLevel === "Moderate" ? 45 : 18
+  const accel = device.accelerometerG
+  return {
+    t,
+    hr,
+    sbp,
+    dbp,
+    spo2,
+    sugar: prev?.sugar ?? 0,
+    temp,
+    steps: prev?.steps ?? 0,
+    roll: prev?.roll ?? 0,
+    ecg: Math.round(ecg),
+    hrv: device.hrv,
+    resp: device.respiratoryRate,
+    eda: device.eda ?? prev?.eda ?? 0,
+    stress: device.stressIndex,
+    accel,
+    activityLevel,
+    sudden: device.suddenMovement ? 1 : 0,
+    immobile: device.prolongedImmobility ? 1 : 0,
+  }
+}
+
 export function LiveVitalsView({
   initialUserId = null,
   onUserChange,
@@ -97,11 +144,15 @@ export function LiveVitalsView({
   const [selectedUser, setSelectedUser] = useState<string | null>(initialUserId)
   const [history, setHistory] = useState<Sample[]>([])
   const [conditions, setConditions] = useState<Record<string, UserCondition>>(() =>
-    Object.fromEntries(mapPoints.map((p) => [p.id, p.condition])),
+    Object.fromEntries([
+      [MY_DEVICE_USER_ID, myDeviceCareUser.condition],
+      ...mapPoints.map((p) => [p.id, p.condition] as const),
+    ]),
   )
   const [paused, setPaused] = useState(false)
   const tickRef = useRef(0)
   const [tickNow, setTickNow] = useState(() => new Date())
+  const watch = useWatchLive(1000)
 
   useEffect(() => {
     setSelectedUser(initialUserId)
@@ -123,10 +174,17 @@ export function LiveVitalsView({
     setConditions((prev) => ({ ...prev, [userId]: c }))
   }
 
-  const user = useMemo(
-    () => mapPoints.find((p) => p.id === selectedUser) ?? null,
-    [selectedUser],
-  )
+  const isWatchUser = isMyDeviceUserId(selectedUser)
+
+  const user = useMemo(() => {
+    if (!selectedUser) return null
+    if (isMyDeviceUserId(selectedUser)) {
+      const lat = watch.coords?.lat ?? myDeviceCareUser.lat
+      const lng = watch.coords?.lng ?? myDeviceCareUser.lng
+      return { ...myDeviceCareUser, lat, lng }
+    }
+    return mapPoints.find((p) => p.id === selectedUser) ?? null
+  }, [selectedUser, watch.coords?.lat, watch.coords?.lng])
 
   useEffect(() => {
     if (!user) {
@@ -134,6 +192,11 @@ export function LiveVitalsView({
       return
     }
     tickRef.current = 0
+    if (isMyDeviceUserId(user.id)) {
+      const seed = sampleFromWatch(null, watch.device, watch.snapshot)
+      setHistory(Array.from({ length: 24 }, () => ({ ...seed })))
+      return
+    }
     const initial: Sample[] = []
     let prev: Sample | null = null
     for (let i = 0; i < 24; i++) {
@@ -141,10 +204,11 @@ export function LiveVitalsView({
       initial.push(prev)
     }
     setHistory(initial)
-  }, [user])
+  }, [user?.id])
 
+  // Demo users: 1s simulated stream
   useEffect(() => {
-    if (!user || paused) return
+    if (!user || paused || isMyDeviceUserId(user.id)) return
     const id = window.setInterval(() => {
       tickRef.current += 1
       setHistory((h) => {
@@ -156,6 +220,38 @@ export function LiveVitalsView({
     return () => window.clearInterval(id)
   }, [user, paused])
 
+  // My Device: append a point whenever watch telemetry refreshes
+  useEffect(() => {
+    if (!user || paused || !isMyDeviceUserId(user.id)) return
+    setHistory((h) => {
+      const last = h[h.length - 1] ?? null
+      const next = sampleFromWatch(last, watch.device, watch.snapshot)
+      if (
+        last &&
+        last.hr === next.hr &&
+        last.spo2 === next.spo2 &&
+        last.temp === next.temp &&
+        last.sbp === next.sbp &&
+        last.dbp === next.dbp
+      ) {
+        // Still advance time label so the console feels live
+        return [...h.slice(-59), { ...next, t: next.t }]
+      }
+      return [...h.slice(-59), next]
+    })
+  }, [
+    user?.id,
+    paused,
+    watch.device.heartRate,
+    watch.device.spo2,
+    watch.device.skinTemperature,
+    watch.device.battery,
+    watch.device.lastSync,
+    watch.snapshot?.health?.bp_systolic,
+    watch.snapshot?.health?.bp_diastolic,
+    watch.snapshot?.last_seen_at,
+  ])
+
   const live = history[history.length - 1]
 
   if (!user) {
@@ -166,6 +262,8 @@ export function LiveVitalsView({
           conditions={conditions}
           onOpenUser={(id) => selectUser(id)}
           onConditionChange={setUserCondition}
+          watchOnline={Boolean(watch.snapshot?.ok && watch.device.connected)}
+          watchDevice={watch.device}
         />
       </div>
     )
@@ -191,6 +289,20 @@ export function LiveVitalsView({
         onSelectUser={(id) => selectUser(id)}
         onBack={() => selectUser(null)}
         onConditionChange={setUserCondition}
+        deviceOverride={isWatchUser ? watch.device : undefined}
+        watchLive={isWatchUser}
+        watchClock={isWatchUser ? watch.snapshot?.clock : null}
+        watchStatus={
+          isWatchUser
+            ? watch.loading && !watch.snapshot?.ok
+              ? "Connecting to TCP watch…"
+              : watch.snapshot?.ok
+                ? `Live TCP watch · IMEI ${watch.snapshot.imei ?? "—"}`
+                : watch.error
+                  ? `Watch bridge: ${watch.error}`
+                  : "Waiting for watch packets…"
+            : undefined
+        }
       />
     </div>
   )

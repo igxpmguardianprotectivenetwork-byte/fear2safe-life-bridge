@@ -211,10 +211,10 @@ export function Login() {
           <div className="relative">
             <Logo glow toHome={false} className="!h-20 !w-20" />
             <p className="mt-6 text-[11px] font-bold tracking-[0.22em] text-pink uppercase">
-              Fear2Safe Life Bridge
+              IGXPM
             </p>
             <h1 className="mt-2 text-3xl leading-tight font-extrabold">
-              Fear2Safe
+              IGXPM
               <span className="text-pink"> Dashboard</span>
             </h1>
             <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/70">
@@ -226,8 +226,8 @@ export function Login() {
           <div className="relative mt-10">
             <div className="login-hero-frame mx-auto aspect-square w-full max-w-[320px] overflow-hidden rounded-full">
               <img
-                src="/brand/hero-mother-child.png"
-                alt="Fear2Safe — mother and child"
+                src="/brand/igxpm-logo.png"
+                alt="IGXPM Guardian Protective Network"
                 className="login-hero-img h-full w-full"
                 decoding="sync"
                 fetchPriority="high"
@@ -254,7 +254,7 @@ export function Login() {
           <div className="mb-8 flex items-center gap-3 lg:hidden">
             <Logo glow toHome={false} compact />
             <div>
-              <p className="text-xs font-bold tracking-wide text-pink uppercase">Fear2Safe</p>
+              <p className="text-xs font-bold tracking-wide text-pink uppercase">IGXPM</p>
               <p className="text-sm font-extrabold text-navy">Dashboard Login</p>
             </div>
           </div>
@@ -267,7 +267,7 @@ export function Login() {
               Welcome back
             </h2>
             <p className="mt-1.5 text-sm text-muted">
-              Enter your credentials to open the Fear2Safe Life Bridge.
+              Enter your credentials to open the IGXPM Dashboard.
             </p>
           </div>
 
@@ -396,7 +396,7 @@ export function Login() {
               ) : (
                 <>
                   <Shield className="h-4 w-4" />
-                  Enter Fear2Safe Dashboard
+                  Enter IGXPM Dashboard
                   <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
                 </>
               )}

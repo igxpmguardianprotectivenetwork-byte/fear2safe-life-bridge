@@ -7,6 +7,9 @@ export type ProtectionDevice = {
   wearer: string
   serial: string
   connected: boolean
+  /** AP10 alarm 03 = off wrist; AP49 heart rate 30–220 = on wrist. */
+  onWrist?: boolean | null
+  gpsFix?: boolean
   connectionType: string
   lastSync: string
   signalStrength: "Strong" | "Fair" | "Weak"

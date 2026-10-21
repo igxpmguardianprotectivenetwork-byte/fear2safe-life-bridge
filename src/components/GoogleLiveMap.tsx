@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { GoogleMap, MarkerF, CircleF, useJsApiLoader } from "@react-google-maps/api"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { GoogleMap, MarkerF, CircleF } from "@react-google-maps/api"
 import {
   Layers,
   LocateFixed,
@@ -12,6 +12,7 @@ import {
   UsersRound,
   Clock3,
 } from "lucide-react"
+import { isValidGps } from "../lib/useWatchLive"
 
 export type LiveMapMarker = {
   id: string
@@ -47,9 +48,68 @@ type GoogleLiveMapProps = {
   showSafeZoneCircles?: boolean
   onLiveChange?: (live: { lat: number; lng: number; accuracy: number } | null) => void
   onSelectSelf?: () => void
+  /** Prefer TCP watch / external GPS over browser geolocation when provided. */
+  externalLive?: { lat: number; lng: number; accuracy: number } | null
 }
 
 const mapContainerStyle = { width: "100%", height: "100%" }
+
+function useGoogleMapsApi(apiKey: string) {
+  const [isLoaded, setIsLoaded] = useState(
+    () => typeof window !== "undefined" && Boolean(window.google?.maps),
+  )
+  const [loadError, setLoadError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    if (!apiKey) return
+    if (window.google?.maps) {
+      setIsLoaded(true)
+      return
+    }
+
+    let cancelled = false
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src*="maps.googleapis.com/maps/api/js"]',
+    )
+
+    const markReady = () => {
+      if (!cancelled && window.google?.maps) setIsLoaded(true)
+    }
+
+    if (existing) {
+      existing.addEventListener("load", markReady)
+      const timer = window.setInterval(markReady, 200)
+      const timeout = window.setTimeout(() => {
+        if (!cancelled && !window.google?.maps) {
+          setLoadError(new Error("Google Maps script timed out. Enable Maps JavaScript API and localhost for this key."))
+        }
+      }, 15000)
+      return () => {
+        cancelled = true
+        existing.removeEventListener("load", markReady)
+        window.clearInterval(timer)
+        window.clearTimeout(timeout)
+      }
+    }
+
+    const script = document.createElement("script")
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`
+    script.async = true
+    script.dataset.fear2safeMaps = "1"
+    script.onload = markReady
+    script.onerror = () => {
+      if (!cancelled) {
+        setLoadError(new Error("Google Maps script failed to load. Check the API key and billing."))
+      }
+    }
+    document.head.appendChild(script)
+    return () => {
+      cancelled = true
+    }
+  }, [apiKey])
+
+  return { isLoaded, loadError }
+}
 
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
   { elementType: "geometry", stylers: [{ color: "#F5F9FC" }] },
@@ -160,26 +220,44 @@ export function GoogleLiveMap({
   showSafeZoneCircles = false,
   onLiveChange,
   onSelectSelf,
+  externalLive = null,
 }: GoogleLiveMapProps) {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: "fear2safe-google-maps",
-    googleMapsApiKey: apiKey || "",
-  })
+  const apiKey = String(import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "").trim()
+  const { isLoaded, loadError } = useGoogleMapsApi(apiKey)
 
-  const [live, setLive] = useState<{ lat: number; lng: number; accuracy: number } | null>(null)
+  const [browserLive, setBrowserLive] = useState<{ lat: number; lng: number; accuracy: number } | null>(null)
   const [liveError, setLiveError] = useState<string | null>(null)
   const [map, setMap] = useState<google.maps.Map | null>(null)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
+  const lastPanKey = useRef<string>("")
+  const initialCentered = useRef(false)
+
+  const live =
+    externalLive && isValidGps(externalLive.lat, externalLive.lng)
+      ? externalLive
+      : browserLive && isValidGps(browserLive.lat, browserLive.lng)
+        ? browserLive
+        : null
+
+  // Always keep My Device on the console map (real GPS, else network home pin).
+  const pinPosition = live ?? (consoleMode && showLiveUser ? fallbackCenter : null)
+  const hasRealGps = Boolean(live)
+
+  useEffect(() => {
+    if (!externalLive || !isValidGps(externalLive.lat, externalLive.lng)) return
+    setUpdatedAt(new Date())
+    setLiveError(null)
+    onLiveChange?.(externalLive)
+  }, [externalLive?.lat, externalLive?.lng, externalLive?.accuracy, onLiveChange])
 
   useEffect(() => {
     if (!showLiveUser) {
       setLiveError(null)
-      setLive(null)
+      setBrowserLive(null)
       return
     }
     if (!navigator.geolocation) {
-      setLiveError("Geolocation not available")
+      if (!externalLive) setLiveError("Geolocation not available")
       return
     }
 
@@ -190,40 +268,77 @@ export function GoogleLiveMap({
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy || 40,
         }
-        setLive(next)
+        if (!isValidGps(next.lat, next.lng)) return
+        setBrowserLive((prev) => {
+          if (
+            prev &&
+            Math.abs(prev.lat - next.lat) < 1e-6 &&
+            Math.abs(prev.lng - next.lng) < 1e-6
+          ) {
+            return prev
+          }
+          return next
+        })
         setUpdatedAt(new Date())
         setLiveError(null)
-        onLiveChange?.(next)
+        if (!externalLive) onLiveChange?.(next)
       },
       (err) => {
-        setLiveError(err.message || "Location permission needed")
-        onLiveChange?.(null)
+        if (!externalLive) {
+          setLiveError(err.message || "Location permission needed")
+          onLiveChange?.(null)
+        }
       },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 20_000 },
     )
 
     return () => navigator.geolocation.clearWatch(watchId)
-  }, [showLiveUser, onLiveChange])
+  }, [showLiveUser, onLiveChange, externalLive])
 
-  const center = live ?? (markers[0] ? { lat: markers[0].lat, lng: markers[0].lng } : fallbackCenter)
+  // Stable initial camera — never drive GoogleMap with a changing `center` prop (causes jerk).
+  const defaultCenter = useMemo(
+    () => fallbackCenter ?? { lat: 6.8544, lng: 79.8635 },
+    [fallbackCenter.lat, fallbackCenter.lng],
+  )
 
   useEffect(() => {
     if (!map) return
+
     if (focusTarget) {
-      map.panTo(focusTarget)
-      map.setZoom(Math.max(map.getZoom() ?? 14, 15))
+      const key = `focus:${focusTarget.lat.toFixed(5)},${focusTarget.lng.toFixed(5)}`
+      if (lastPanKey.current !== key) {
+        lastPanKey.current = key
+        map.panTo(focusTarget)
+        map.setZoom(Math.max(map.getZoom() ?? 14, 15))
+      }
       return
     }
-    if (followLive && live) {
-      map.panTo(live)
+
+    // First paint: frame Sri Lanka network once.
+    if (!initialCentered.current) {
+      initialCentered.current = true
+      if (consoleMode && markers.length > 0) {
+        const bounds = new google.maps.LatLngBounds()
+        markers.forEach((m) => bounds.extend({ lat: m.lat, lng: m.lng }))
+        if (pinPosition) bounds.extend(pinPosition)
+        map.fitBounds(bounds, 56)
+        lastPanKey.current = "network"
+      } else {
+        map.panTo(defaultCenter)
+        lastPanKey.current = `home:${defaultCenter.lat},${defaultCenter.lng}`
+      }
       return
     }
-    if (!consoleMode && markers.length > 1) {
-      const bounds = new google.maps.LatLngBounds()
-      markers.forEach((m) => bounds.extend({ lat: m.lat, lng: m.lng }))
-      map.fitBounds(bounds, 48)
+
+    // Soft-follow real GPS only when it moves > ~40m — never snap every poll tick.
+    if (followLive && live && !focusTarget) {
+      const key = `live:${live.lat.toFixed(4)},${live.lng.toFixed(4)}`
+      if (lastPanKey.current !== key) {
+        lastPanKey.current = key
+        map.panTo(live)
+      }
     }
-  }, [map, live, markers, followLive, focusTarget, consoleMode])
+  }, [map, focusTarget, followLive, live, consoleMode, markers, pinPosition, defaultCenter])
 
   const onLoad = useCallback((m: google.maps.Map) => setMap(m), [])
 
@@ -236,14 +351,11 @@ export function GoogleLiveMap({
     }
     const ro = new ResizeObserver(() => {
       google.maps.event.trigger(map, "resize")
-      if (focusTarget) map.panTo(focusTarget)
-      else if (followLive && live) map.panTo(live)
-      else if (markers[0]) map.panTo({ lat: markers[0].lat, lng: markers[0].lng })
     })
     ro.observe(el)
     google.maps.event.trigger(map, "resize")
     return () => ro.disconnect()
-  }, [map, focusTarget, followLive, live, markers])
+  }, [map])
 
   const options = useMemo<google.maps.MapOptions>(
     () => ({
@@ -278,12 +390,25 @@ export function GoogleLiveMap({
     safeZones: 0,
   }
 
+  if (!apiKey) {
+    return (
+      <div
+        className={`flex items-center justify-center rounded-[14px] border border-[#DCEAF4] bg-[#FFF8E9] px-4 text-center text-sm text-[#8A5A00] ${className}`}
+      >
+        Google Maps API key missing. Add VITE_GOOGLE_MAPS_API_KEY to .env and restart the Vite server.
+      </div>
+    )
+  }
+
   if (loadError) {
     return (
       <div
-        className={`flex items-center justify-center rounded-[14px] border border-[#DCE6EE] bg-[#DCEFFA] text-sm text-[#007F86] ${className}`}
+        className={`flex flex-col items-center justify-center gap-1 rounded-[14px] border border-[#DCEAF4] bg-[#FFF1F4] px-4 text-center text-sm text-[#B42318] ${className}`}
       >
-        Google Maps failed to load. Check API key & Maps JavaScript API.
+        <span>Google Maps failed to load.</span>
+        <span className="text-xs font-medium text-[#6B8098]">
+          {loadError.message || "Check Maps JavaScript API, billing, and key restrictions for localhost."}
+        </span>
       </div>
     )
   }
@@ -302,7 +427,7 @@ export function GoogleLiveMap({
     <div className={`relative overflow-hidden rounded-[14px] border border-[#DCE6EE] ${className}`}>
       <GoogleMap
         mapContainerStyle={mapContainerStyle}
-        center={center}
+        center={defaultCenter}
         zoom={zoom}
         options={options}
         onLoad={onLoad}
@@ -358,17 +483,17 @@ export function GoogleLiveMap({
               />
             ))}
 
-        {live && (
+        {pinPosition && (
           <>
             <MarkerF
-              position={live}
-              title="My Device · Live Location"
+              position={pinPosition}
+              title={hasRealGps ? "My Device · Live Location" : "My Device · Waiting for watch GPS"}
               icon={buildLiveUserIcon()}
               onClick={() => onSelectSelf?.()}
               zIndex={1000}
             />
             <CircleF
-              center={live}
+              center={pinPosition}
               radius={300}
               options={{
                 fillColor: "#00B0B9",
@@ -379,8 +504,8 @@ export function GoogleLiveMap({
               }}
             />
             <CircleF
-              center={live}
-              radius={Math.max(live.accuracy, 80)}
+              center={pinPosition}
+              radius={Math.max(live?.accuracy ?? 80, 80)}
               options={{
                 fillColor: "#00B0B9",
                 fillOpacity: 0.18,
@@ -396,8 +521,8 @@ export function GoogleLiveMap({
       {!(hideFloatingStats && !showLiveUser) ? (
       <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-white/80 bg-white/95 px-2.5 py-1 text-[11px] font-bold text-navy shadow-sm backdrop-blur">
-          <span className={`h-2 w-2 rounded-full ${live ? "animate-pulse bg-mint" : "bg-orange"}`} />
-          {live ? "LIVE GPS" : "WAITING GPS"}
+          <span className={`h-2 w-2 rounded-full ${hasRealGps ? "animate-pulse bg-mint" : "bg-orange"}`} />
+          {hasRealGps ? "LIVE GPS" : "WAITING GPS"}
         </span>
         {(consoleMode || hideFloatingStats) && showLiveUser ? (
           <button
@@ -489,8 +614,9 @@ export function GoogleLiveMap({
             type="button"
             aria-label="Recenter"
             onClick={() => {
-              if (live) {
-                map?.panTo(live)
+              const target = live ?? pinPosition
+              if (target) {
+                map?.panTo(target)
                 map?.setZoom(15)
               }
             }}

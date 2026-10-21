@@ -96,9 +96,9 @@ export function BootIntro({ onDone }: BootIntroProps) {
 
           <div className="boot-logo-wrap relative z-10 h-[7.5rem] w-[7.5rem] overflow-hidden rounded-full shadow-[0_0_40px_rgba(233,30,99,0.55)] ring-2 ring-pink/60 sm:h-36 sm:w-36">
             <img
-              src="/brand/fear2safe-logo.jpg"
-              alt="Fear2Safe"
-              className="h-full w-full object-cover"
+              src="/brand/igxpm-logo.png"
+              alt="IGXPM"
+              className="h-full w-full bg-white object-contain"
               decoding="sync"
               fetchPriority="high"
             />

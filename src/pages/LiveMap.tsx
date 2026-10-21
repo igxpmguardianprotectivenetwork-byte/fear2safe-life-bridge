@@ -14,6 +14,7 @@ import {
   type MapFilter,
 } from "../components/liveMap/liveMapState"
 import { mapPoints } from "../data/mock"
+import { useWatchLive } from "../lib/useWatchLive"
 
 const markerColors: Record<string, string> = {
   alert: "#F2385A",
@@ -24,12 +25,16 @@ const markerColors: Record<string, string> = {
   verify: "#F5A214",
 }
 
+/** Stable — do not recreate inline or the map camera jerks every second. */
+const SL_CENTER = { lat: 6.8544, lng: 79.8635 } as const
+
 export function LiveMap() {
   const [filter, setFilter] = useState<MapFilter>("All")
   const [q, setQ] = useState("")
   const [selectedId, setSelectedId] = useState<string | null>("self")
   const [live, setLive] = useState<{ lat: number; lng: number; accuracy: number } | null>(null)
   const [now, setNow] = useState(() => new Date())
+  const { coords: watchCoords } = useWatchLive(5000)
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 1000)
@@ -52,14 +57,16 @@ export function LiveMap() {
     })
   }, [filter, q])
 
+  const effectiveLive = watchCoords ?? live
+
   const origin = useMemo(() => {
     if (selectedId && selectedId !== "self") {
       const p = mapPoints.find((x) => x.id === selectedId)
       if (p) return { lat: p.lat, lng: p.lng }
     }
-    if (live) return { lat: live.lat, lng: live.lng }
-    return { lat: 6.8544, lng: 79.8635 }
-  }, [selectedId, live])
+    if (effectiveLive) return { lat: effectiveLive.lat, lng: effectiveLive.lng }
+    return SL_CENTER
+  }, [selectedId, effectiveLive])
 
   const nearby = useMemo(() => {
     return mapPoints
@@ -85,7 +92,17 @@ export function LiveMap() {
 
   const onLiveChange = useCallback(
     (next: { lat: number; lng: number; accuracy: number } | null) => {
-      setLive(next)
+      setLive((prev) => {
+        if (!next) return null
+        if (
+          prev &&
+          Math.abs(prev.lat - next.lat) < 1e-6 &&
+          Math.abs(prev.lng - next.lng) < 1e-6
+        ) {
+          return prev
+        }
+        return next
+      })
     },
     [],
   )
@@ -111,7 +128,7 @@ export function LiveMap() {
         <GoogleLiveMap
           markers={markers}
           className="f2s-lm-map-canvas"
-          fallbackCenter={{ lat: 6.8544, lng: 79.8635 }}
+          fallbackCenter={SL_CENTER}
           zoom={14}
           showLiveUser
           consoleMode
@@ -123,9 +140,10 @@ export function LiveMap() {
             safeZones: stats.safeZones,
           }}
           selectedId={selectedId}
-          followLive={selectedId === "self" || selectedId == null}
+          followLive={Boolean(effectiveLive) && (selectedId === "self" || selectedId == null)}
           focusTarget={focusTarget}
           showSafeZoneCircles={filter === "Safe Zones" || filter === "All"}
+          externalLive={watchCoords}
           onLiveChange={onLiveChange}
           onSelectSelf={() => setSelectedId("self")}
           onMarkerClick={(m) => setSelectedId(m.id)}
@@ -133,8 +151,8 @@ export function LiveMap() {
 
         <SelectedUserPanel
           selectedId={selectedId}
-          liveCoords={live ? { lat: live.lat, lng: live.lng } : null}
-          liveAccuracy={live?.accuracy ?? null}
+          liveCoords={effectiveLive ? { lat: effectiveLive.lat, lng: effectiveLive.lng } : null}
+          liveAccuracy={effectiveLive?.accuracy ?? null}
           nearby={nearby}
           onSelect={(id) => setSelectedId(id)}
         />

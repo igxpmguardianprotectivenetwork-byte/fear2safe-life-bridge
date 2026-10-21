@@ -682,13 +682,13 @@ textarea {
 }
 
 .landing-page .hero-image-refined {
-  object-fit: cover;
-  object-position: 50% 40%;
+  object-fit: contain;
+  object-position: center;
   transform: none;
   image-rendering: auto;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-  filter: contrast(1.12) saturate(1.1) brightness(1.04);
+  background: #fff;
 }
 
 .landing-page .reveal-in {
@@ -1150,21 +1150,20 @@ html {
 }
 
 .login-page .login-hero-img {
-  object-fit: cover;
-  object-position: 50% 40%;
+  object-fit: contain;
+  object-position: center;
   transform: none;
   image-rendering: auto;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-  /* Sharper, clearer presentation without soft blur */
-  filter: contrast(1.12) saturate(1.1) brightness(1.04);
+  background: #fff;
 }
 
 .login-page .hero-image-refined {
-  object-fit: cover;
-  object-position: 50% 40%;
+  object-fit: contain;
+  object-position: center;
   transform: none;
-  filter: contrast(1.12) saturate(1.1) brightness(1.04);
+  background: #fff;
 }
 
 /* =========================================================
@@ -1201,6 +1200,17 @@ html {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.f2s-device-live-banner {
+  margin: -4px 0 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #cfe8f5;
+  background: #eaf6fd;
+  color: #173b63;
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .f2s-device-header {
@@ -1316,6 +1326,36 @@ html {
   padding: 8px 14px;
 }
 
+.f2s-wrist-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 14px;
+}
+
+.f2s-wrist-pill svg {
+  width: 14px;
+  height: 14px;
+}
+
+.f2s-wrist-pill.is-on {
+  background: #e7f8f4;
+  color: #0f8f7a;
+}
+
+.f2s-wrist-pill.is-off {
+  background: #fff1e8;
+  color: #c05621;
+}
+
+.f2s-wrist-pill.is-unknown {
+  background: #eef3f8;
+  color: #51657f;
+}
+
 .f2s-dot-live {
   width: 8px;
   height: 8px;
@@ -1423,7 +1463,7 @@ html {
 .f2s-hero-logo {
   width: 38px;
   height: 38px;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 10px;
   border: 1px solid rgba(221, 234, 244, 0.9);
   background: #fff;
@@ -1530,6 +1570,11 @@ html {
 .f2s-hero-band > div {
   height: 100%;
   max-height: 320px;
+}
+
+.f2s-hero-band .f2s-watch-mirror {
+  height: auto;
+  max-height: none;
 }
 
 .f2s-hero-caption {
@@ -1754,16 +1799,21 @@ html {
 
 .f2s-loc-map {
   position: relative;
-  width: 108px;
-  height: 72px;
+  width: min(220px, 42%);
+  height: 132px;
   border-radius: 12px;
   border: 1px solid #cfe8f5;
-  background:
-    linear-gradient(#e8f4fb 1px, transparent 1px) 0 0 / 14px 14px,
-    linear-gradient(90deg, #e8f4fb 1px, transparent 1px) 0 0 / 14px 14px,
-    #f4fafd;
+  background: #f4fafd;
   overflow: hidden;
   flex-shrink: 0;
+}
+
+.f2s-loc-map-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 132px !important;
+  border: 0 !important;
+  border-radius: 12px !important;
 }
 
 .f2s-loc-safe {
@@ -6207,6 +6257,10 @@ html {
   background: #14b882;
 }
 
+.f2s-lv-stream .is-off-wrist {
+  color: #c05621;
+}
+
 .f2s-lv-open {
   border: 0;
   border-radius: 10px;
@@ -7184,6 +7238,48 @@ html {
   letter-spacing: 0.03em;
 }
 
+.f2s-cc-own-avatar {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #007f86, #0aa3ad);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.f2s-cc-own-avatar.is-lg {
+  width: 44px;
+  height: 44px;
+  font-size: 14px;
+}
+
+.f2s-cc-watch-status {
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #007f86;
+}
+
+.f2s-lv-own-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #007f86, #0aa3ad);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
 .f2s-cc-add-user {
   margin: 4px 10px 0;
   display: inline-flex;
@@ -7276,6 +7372,16 @@ html {
   font-size: 12px;
   font-weight: 750;
   color: var(--f2s-navy);
+}
+
+.f2s-cc-tiles > div.is-off-wrist {
+  border-color: #f4c7a8;
+  background: #fff8f3;
+}
+
+.f2s-cc-tiles > div.is-off-wrist svg,
+.f2s-cc-tiles > div.is-off-wrist strong {
+  color: #c05621;
 }
 
 .f2s-cc-device-btn {
@@ -9564,6 +9670,174 @@ html {
   .f2s-set-edit-btn {
     width: 100%;
     justify-content: center;
+  }
+}
+
+.f2s-watch-mirror {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.f2s-watch-bezel {
+  width: 236px;
+  height: 236px;
+  border-radius: 50%;
+  padding: 10px;
+  background:
+    radial-gradient(circle at 32% 22%, #4b5563, #111827 42%, #030712 72%);
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.f2s-watch-mirror.is-sm .f2s-watch-bezel {
+  width: 176px;
+  height: 176px;
+  padding: 8px;
+}
+
+.f2s-watch-lcd {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 30%, #123044, #061018 70%);
+  color: #e8fbff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 16px 14px;
+  box-shadow: inset 0 0 0 2px rgba(20, 159, 232, 0.28);
+}
+
+.f2s-watch-mirror.is-offline .f2s-watch-lcd {
+  filter: grayscale(0.35) brightness(0.72);
+}
+
+.f2s-watch-top {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #9ad7ea;
+}
+
+.f2s-watch-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.f2s-watch-live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #64748b;
+}
+
+.f2s-watch-live.is-on {
+  color: #34f5c5;
+}
+
+.f2s-watch-live.is-on i {
+  background: #34f5c5;
+  box-shadow: 0 0 0 3px rgba(52, 245, 197, 0.22);
+  animation: f2s-watch-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes f2s-watch-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.f2s-watch-clock {
+  margin: 6px 0 0;
+  font-size: 28px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.f2s-watch-mirror.is-sm .f2s-watch-clock {
+  font-size: 20px;
+}
+
+.f2s-watch-clock span {
+  font-size: 0.55em;
+  color: #7dd3fc;
+}
+
+.f2s-watch-hr {
+  margin: 8px 0 0;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ff6b81;
+}
+
+.f2s-watch-mirror.is-sm .f2s-watch-hr {
+  font-size: 24px;
+  margin-top: 4px;
+}
+
+.f2s-watch-hr small,
+.f2s-watch-row small {
+  display: block;
+  margin-top: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #8ab4c7;
+}
+
+.f2s-watch-row {
+  width: 100%;
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr 0.9fr;
+  gap: 4px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.f2s-watch-mirror.is-sm .f2s-watch-row {
+  font-size: 10px;
+  margin-top: 4px;
+}
+
+.f2s-watch-wrist {
+  margin: 8px 0 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #34f5c5;
+}
+
+.f2s-watch-wrist.is-off {
+  color: #fb923c;
+}
+
+.f2s-watch-caption {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--f2s-muted);
+}
+
+.f2s-cc-selected.has-mirror .f2s-watch-mirror {
+  justify-self: center;
+}
+
+@media (min-width: 1500px) {
+  .f2s-cc-selected.has-mirror {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr) auto;
   }
 }
 
