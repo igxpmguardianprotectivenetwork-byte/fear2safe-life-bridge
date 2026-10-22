@@ -13,6 +13,7 @@ import {
   Clock3,
 } from "lucide-react"
 import { isValidGps } from "../lib/useWatchLive"
+import { ProtectionMap } from "./ProtectionMap"
 
 export type LiveMapMarker = {
   id: string
@@ -54,57 +55,80 @@ type GoogleLiveMapProps = {
 
 const mapContainerStyle = { width: "100%", height: "100%" }
 
+declare global {
+  interface Window {
+    __igxpmMapsReady?: () => void
+    __igxpmMapsAuthFailed?: boolean
+    gm_authFailure?: () => void
+  }
+}
+
 function useGoogleMapsApi(apiKey: string) {
   const [isLoaded, setIsLoaded] = useState(
-    () => typeof window !== "undefined" && Boolean(window.google?.maps),
+    () => typeof window !== "undefined" && Boolean(window.google?.maps?.Map),
   )
   const [loadError, setLoadError] = useState<Error | null>(null)
 
   useEffect(() => {
     if (!apiKey) return
-    if (window.google?.maps) {
-      setIsLoaded(true)
+
+    let cancelled = false
+    const fail = (message: string) => {
+      if (!cancelled) setLoadError(new Error(message))
+    }
+
+    window.gm_authFailure = () => {
+      window.__igxpmMapsAuthFailed = true
+      fail("Google Maps blocked this API key. Enable billing and allow this website on the key.")
+    }
+
+    if (window.__igxpmMapsAuthFailed) {
+      fail("Google Maps blocked this API key. Enable billing and allow this website on the key.")
       return
     }
 
-    let cancelled = false
+    const markReady = () => {
+      if (cancelled || window.__igxpmMapsAuthFailed) return
+      if (window.google?.maps?.Map) setIsLoaded(true)
+    }
+
+    const previousReady = window.__igxpmMapsReady
+    window.__igxpmMapsReady = () => {
+      previousReady?.()
+      markReady()
+    }
+
+    if (window.google?.maps?.Map) {
+      markReady()
+      return () => {
+        cancelled = true
+      }
+    }
+
     const existing = document.querySelector<HTMLScriptElement>(
       'script[src*="maps.googleapis.com/maps/api/js"]',
     )
 
-    const markReady = () => {
-      if (!cancelled && window.google?.maps) setIsLoaded(true)
+    if (!existing) {
+      const script = document.createElement("script")
+      script.async = true
+      script.defer = true
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async&callback=__igxpmMapsReady`
+      script.onerror = () => fail("Google Maps script failed to load.")
+      document.head.appendChild(script)
     }
 
-    if (existing) {
-      existing.addEventListener("load", markReady)
-      const timer = window.setInterval(markReady, 200)
-      const timeout = window.setTimeout(() => {
-        if (!cancelled && !window.google?.maps) {
-          setLoadError(new Error("Google Maps script timed out. Enable Maps JavaScript API and localhost for this key."))
-        }
-      }, 15000)
-      return () => {
-        cancelled = true
-        existing.removeEventListener("load", markReady)
-        window.clearInterval(timer)
-        window.clearTimeout(timeout)
+    const timer = window.setInterval(markReady, 250)
+    const timeout = window.setTimeout(() => {
+      if (!window.google?.maps?.Map) {
+        fail("Google Maps timed out. Check Maps JavaScript API, billing, and key restrictions.")
       }
-    }
+    }, 15000)
 
-    const script = document.createElement("script")
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly`
-    script.async = true
-    script.dataset.fear2safeMaps = "1"
-    script.onload = markReady
-    script.onerror = () => {
-      if (!cancelled) {
-        setLoadError(new Error("Google Maps script failed to load. Check the API key and billing."))
-      }
-    }
-    document.head.appendChild(script)
     return () => {
       cancelled = true
+      window.clearInterval(timer)
+      window.clearTimeout(timeout)
     }
   }, [apiKey])
 
@@ -390,30 +414,24 @@ export function GoogleLiveMap({
     safeZones: 0,
   }
 
-  if (!apiKey) {
-    return (
-      <div
-        className={`flex items-center justify-center rounded-[14px] border border-[#DCEAF4] bg-[#FFF8E9] px-4 text-center text-sm text-[#8A5A00] ${className}`}
-      >
-        Google Maps API key missing. Add VITE_GOOGLE_MAPS_API_KEY to .env and restart the Vite server.
-      </div>
-    )
-  }
+  const fallbackMarkers = useMemo(() => {
+    const list = [...markers]
+    if (pinPosition) {
+      list.unshift({
+        id: "self-live",
+        lat: pinPosition.lat,
+        lng: pinPosition.lng,
+        label: hasRealGps ? "My Device · Live" : "My Device",
+        color: "#007F86",
+        detail: "protected",
+      })
+    }
+    return list
+  }, [markers, pinPosition, hasRealGps])
 
-  if (loadError) {
-    return (
-      <div
-        className={`flex flex-col items-center justify-center gap-1 rounded-[14px] border border-[#DCEAF4] bg-[#FFF1F4] px-4 text-center text-sm text-[#B42318] ${className}`}
-      >
-        <span>Google Maps failed to load.</span>
-        <span className="text-xs font-medium text-[#6B8098]">
-          {loadError.message || "Check Maps JavaScript API, billing, and key restrictions for localhost."}
-        </span>
-      </div>
-    )
-  }
+  const googleReady = Boolean(apiKey) && isLoaded && !loadError
 
-  if (!isLoaded) {
+  if (apiKey && !isLoaded && !loadError) {
     return (
       <div
         className={`flex items-center justify-center rounded-[14px] border border-[#DCE6EE] bg-[#F5F9FC] text-sm text-[#486174] ${className}`}
@@ -425,6 +443,7 @@ export function GoogleLiveMap({
 
   return (
     <div className={`relative overflow-hidden rounded-[14px] border border-[#DCE6EE] ${className}`}>
+      {googleReady ? (
       <GoogleMap
         mapContainerStyle={mapContainerStyle}
         center={defaultCenter}
@@ -517,6 +536,15 @@ export function GoogleLiveMap({
           </>
         )}
       </GoogleMap>
+      ) : (
+        <ProtectionMap
+          markers={fallbackMarkers}
+          className="h-full w-full border-0"
+          zoom={zoom}
+          center={[defaultCenter.lat, defaultCenter.lng]}
+          pulseId={selectedId ?? (pinPosition ? "self-live" : undefined)}
+        />
+      )}
 
       {!(hideFloatingStats && !showLiveUser) ? (
       <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-2">
