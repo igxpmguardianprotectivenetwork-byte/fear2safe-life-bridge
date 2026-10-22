@@ -25,6 +25,7 @@ import {
   Zap,
 } from "lucide-react"
 import type { ProtectionDevice } from "../../data/devices"
+import { igxpmLogoUrl } from "../../lib/brand"
 import type { WatchLiveCoords } from "../../lib/useWatchLive"
 import { wristStatusLabel } from "../../lib/useWatchLive"
 import { HealthBand3D } from "../HealthBand3D"
@@ -120,7 +121,7 @@ export function DeviceHero({
       <div className="f2s-hero-stage">
         <div className="f2s-hero-brand">
           <img
-            src={`${import.meta.env.BASE_URL}brand/igxpm-logo.png`}
+            src={igxpmLogoUrl}
             alt="IGXPM"
             className="f2s-hero-logo"
           />

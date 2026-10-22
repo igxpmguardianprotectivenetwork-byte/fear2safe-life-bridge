@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom"
+import { igxpmLogoUrl } from "../lib/brand"
 
 type LogoProps = {
   className?: string
@@ -25,7 +26,7 @@ export function Logo({
 
   const mark = (
     <img
-      src="/brand/igxpm-logo.png"
+      src={igxpmLogoUrl}
       alt="IGXPM Guardian Protective Network"
       className={`${glow ? "logo-glow ring-2 ring-pink/50" : "shadow-sm ring-1 ring-black/5"} ${size} rounded-full bg-white object-contain ${className}`}
     />

@@ -14,6 +14,7 @@ import { useAuth } from "../auth"
 import { BootIntro } from "../components/BootIntro"
 import { Logo } from "../components/Logo"
 import { WorldZoomTransition } from "../components/WorldZoomTransition"
+import { heroPhotoUrl, igxpmLogoUrl } from "../lib/brand"
 
 const DEMO_EMAIL = "ahamed@fear2safe.org"
 const DEMO_PASS = "LifeBridge2026"
@@ -24,7 +25,7 @@ function CinematicBackdrop() {
       {/* Soft video-like photo plate (ken burns) */}
       <div className="login-cinema-plate absolute inset-[-8%]">
         <img
-          src="/brand/hero-mother-child.png"
+          src={heroPhotoUrl}
           alt=""
           className="login-cinema-photo h-full w-full object-cover"
           decoding="async"
@@ -226,7 +227,7 @@ export function Login() {
           <div className="relative mt-10">
             <div className="login-hero-frame mx-auto aspect-square w-full max-w-[320px] overflow-hidden rounded-full">
               <img
-                src="/brand/igxpm-logo.png"
+                src={igxpmLogoUrl}
                 alt="IGXPM Guardian Protective Network"
                 className="login-hero-img h-full w-full"
                 decoding="sync"
